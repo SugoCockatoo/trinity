@@ -1,0 +1,67 @@
+project:
+{
+    name: "First Trinity Model"
+    author: "Sugo"
+    version: "0.1"
+}
+
+data:
+{
+    path: "./datasets/iris.csv"
+    type: sequence
+}
+
+model:
+{
+    create: true
+    type: transformer
+
+    parameters:
+    {
+        input_size: 4
+        hidden_size: 32
+        output_size: 3
+
+        layers: 2
+        heads: 4
+    }
+}
+
+train:
+{
+    epochs: 100
+
+    optimizer:
+    {
+        type: adam
+        lr: 0.001
+    }
+
+    loss:
+    {
+        type: cross_entropy
+    }
+}
+
+visualize:
+{
+    architecture: true
+    loss: true
+    metrics: true
+}
+
+evaluate:
+{
+    accuracy: true
+    confusion_matrix: true
+}
+
+export:
+{
+    path: "./models/iris_transformer.pt"
+}
+
+convert:
+{
+    target: tf
+}
