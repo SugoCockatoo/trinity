@@ -1,6 +1,6 @@
 # parser.py
 
-from nodes import ProgramNode, BlockNode, AssignNode, CallNode
+from trinity_engine.nodes import ProgramNode, BlockNode, AssignNode, CallNode
 
 class TrinityParser:
     def __init__(self, tokens):

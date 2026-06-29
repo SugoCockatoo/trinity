@@ -9,6 +9,7 @@ import math
 import tempfile
 import shutil
 from pathlib import Path
+import trinity_engine.language_engine as trinity_lang
 
 from PyQt5.QtCore import (
     Qt, QProcess, QProcessEnvironment, QDir, QRect, QSize, QRegExp,
@@ -68,18 +69,20 @@ SYN_INDENT    = "#1E1E38"   # subtle indent guides
 
 
 # ─────────────────────────── Utility ───────────────────────────
-
+set_language_flag = False 
 def is_text_or_json(path: str) -> bool:
     ext = Path(path).suffix.lower()
-    return ext in {'.py', '.txt', '.md', '.json', '.cpp', '.h', '.c', '.hpp', '.js', '.ts', '.html', '.css'}
+    return ext in {'.py', '.txt', '.md', '.json', '.cpp', '.h', '.c', '.hpp', '.js', '.ts', '.html', '.css', '.tri'}
 
 def detect_language(path: str) -> str:
     ext = Path(path).suffix.lower()
     return {
         '.py': 'Python', '.cpp': 'C++', '.cc': 'C++', '.c': 'C++',
-        '.h': 'C++', '.hpp': 'C++',
+        '.h': 'C++', '.hpp': 'C++', '.tri': 'Trinity'
     }.get(ext, 'Python')
-
+def get_language_prior():
+    if set_language_flag == True:
+        return True 
 
 # ─────────────────────────── Line Number Area ───────────────────────────
 
@@ -1009,7 +1012,7 @@ class TrinityMainWindow(QMainWindow):
         toolbar.addWidget(lang_lbl)
 
         self.lang_select = QComboBox()
-        self.lang_select.addItems(['Python', 'C++'])
+        self.lang_select.addItems(['Python', 'C++', 'Trinity'])
         self.lang_select.currentTextChanged.connect(self._on_lang_changed)
         toolbar.addWidget(self.lang_select)
 
@@ -1417,9 +1420,59 @@ class TrinityMainWindow(QMainWindow):
             python_exec = sys.executable or 'python'
             self.console.appendPlainText(f'\n▶ Running with {python_exec}\n{"─"*60}')
             self.process.start(python_exec, [self.current_file_path])
+        elif lang == 'Trinity':
+            self._run_trinity()
         elif lang == 'C++':
             self._compile_and_run_cpp()
 
+    def _run_trinity(self):
+        """Invoke the Trinity compiler pipeline and stream output to the console."""
+        if not self.current_file_path.endswith('.tri'):
+            QMessageBox.warning(self, 'Wrong File', 'Please open a .tri source file first.')
+            self._reset_run_button()
+            return
+
+        import io
+        self.console.appendPlainText(
+            f'\n▶ Compiling Trinity: {os.path.basename(self.current_file_path)}\n{"─"*60}'
+        )
+
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = captured
+
+        try:
+            ast = trinity_lang.compile_trinity(self.current_file_path)
+
+            if ast is not None:
+                from trinity_engine import interpreter as trinity_interp
+                result = trinity_interp.execute(ast)   # <-- sends AST to interpreter HEREEEEE
+        except Exception as e:
+            self.console.appendPlainText(f'[Trinity] Unhandled exception: {e}')
+            self._reset_run_button()
+            self._flash_console(success=False)
+            return
+        finally:
+            sys.stdout = old_stdout
+
+        # Dump captured output into the IDE console
+        output = captured.getvalue()
+        if output:
+            self.console.appendPlainText(output)
+
+        # Report result
+        if ast is not None:
+            self.console.appendPlainText(f'\n{"─"*60}\n✓ Finished — AST ready ({type(ast).__name__})')
+            self._flash_console(success=True)
+        else:
+            self.console.appendPlainText(f'\n{"─"*60}\n✗ Compilation failed — check errors above.')
+            self._flash_console(success=False)
+
+        self._reset_run_button()
+        self.statusBar().showMessage(
+            f"  Trinity — {'OK' if ast is not None else 'Failed'} · {os.path.basename(self.current_file_path)}"
+        )
+    
     def _compile_and_run_cpp(self):
         if not self.current_file_path.endswith(('.cpp', '.cc', '.c')):
             QMessageBox.warning(self, 'Wrong File', 'Please open a C/C++ source file first.')

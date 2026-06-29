@@ -1,5 +1,5 @@
 import re
-import read
+import trinity_engine.read
 # Mapping exact matches for keywords to keep regex simple
 KEYWORDS = {
     'Project': 'PROJECT', 'Data': 'DATA', 'Input': 'INPUT', 'Model': 'MODEL',
